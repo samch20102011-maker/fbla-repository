@@ -1,0 +1,8 @@
+body {
+    margin: 0;           /* remove default page margin */
+    height: 100vh;       /* full screen height */
+    display: flex;       
+    justify-content: center;  /* horizontal center */
+    align-items: center;      /* vertical center */
+    background-color: #fcfcfc;   /* optional: black background */
+}
