@@ -10,9 +10,9 @@ const config = {
         }
     },
     scene: {
-        preload: preload,
-        create: create,
-        update: update
+        preload,
+        create,
+        update
     }
 };
 
@@ -20,16 +20,14 @@ new Phaser.Game(config);
 
 let player;
 let cursors;
-let speed = 150;
 
 function preload() {
     this.load.tilemapTiledJSON("map", "assets/map.json");
     this.load.image("tiles", "assets/tilemap_packed.png");
 
-    // TEMP PLAYER (use any 16x16 image)
-    this.load.spritesheet("player", "assets/player.png", {
-        frameWidth: 16,
-        frameHeight: 16
+    this.load.spritesheet("player", "assets/player-spritesheet.png", {
+        frameWidth: 64,
+        frameHeight: 64
     });
 }
 
@@ -37,32 +35,105 @@ function create() {
     const map = this.make.tilemap({ key: "map" });
     const tileset = map.addTilesetImage("tilemap_packed", "tiles");
 
-    const ground = map.createLayer("ground", tileset, 0, 0);
-    const decoration = map.createLayer("decoration", tileset, 0, 0);
-    const collision = map.createLayer("collision", tileset, 0, 0);
+    const ground = map.createLayer("ground", tileset);
+    const decoration = map.createLayer("decoration", tileset);
+    const collision = map.createLayer("collision", tileset);
 
     collision.setCollisionByExclusion([-1]);
 
-    player = this.physics.add.sprite(32, 32, "player", 0);
+    // Spawn player
+    player = this.physics.add.sprite(16, 16, "player", 0);
+
+    // Make player 0.25 size
+    player.setScale(0.5);
+
+    // Fix hitbox to 1 tile
+    player.body.setSize(16, 16);
+    player.body.setOffset(24, 24);
+
+    player.lastDirection = "down";
+
     this.physics.add.collider(player, collision);
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    // Zoom everything by 2x
+    // Animations
+    this.anims.create({
+        key: "walk-down",
+        frames: this.anims.generateFrameNumbers("player", { start: 0, end: 3 }),
+        frameRate: 8,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: "walk-left",
+        frames: this.anims.generateFrameNumbers("player", { start: 4, end: 7 }),
+        frameRate: 8,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: "walk-right",
+        frames: this.anims.generateFrameNumbers("player", { start: 8, end: 11 }),
+        frameRate: 8,
+        repeat: -1
+    });
+
+    this.anims.create({
+        key: "walk-up",
+        frames: this.anims.generateFrameNumbers("player", { start: 12, end: 15 }),
+        frameRate: 8,
+        repeat: -1
+    });
+
+    // Camera
     this.cameras.main.setZoom(2);
-
     this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-    this.cameras.main.centerOn(map.widthInPixels / 2, map.heightInPixels / 2);
-
-    // Optional: center camera on player
     this.cameras.main.startFollow(player);
 }
 
 function update() {
-    player.setVelocity(0);
+    let vx = 0;
+    let vy = 0;
 
-    if (cursors.left.isDown) player.setVelocityX(-speed);
-    if (cursors.right.isDown) player.setVelocityX(speed);
-    if (cursors.up.isDown) player.setVelocityY(-speed);
-    if (cursors.down.isDown) player.setVelocityY(speed);
+    const speed = cursors.shift.isDown ? 125 : 75;
+
+    if (cursors.left.isDown) vx = -speed;
+    if (cursors.right.isDown) vx = speed;
+    if (cursors.up.isDown) vy = -speed;
+    if (cursors.down.isDown) vy = speed;
+
+    if (cursors.left.isDown && cursors.right.isDown) vx = 0;
+    if (cursors.up.isDown && cursors.down.isDown) vy = 0;
+
+    player.setVelocity(vx, vy);
+
+    const moving = vx !== 0 || vy !== 0;
+
+    if (moving) {
+        if (vx < 0) {
+            player.anims.play("walk-left", true);
+            player.lastDirection = "left";
+        }
+        else if (vx > 0) {
+            player.anims.play("walk-right", true);
+            player.lastDirection = "right";
+        }
+        else if (vy < 0) {
+            player.anims.play("walk-up", true);
+            player.lastDirection = "up";
+        }
+        else if (vy > 0) {
+            player.anims.play("walk-down", true);
+            player.lastDirection = "down";
+        }
+    } else {
+        player.anims.stop();
+
+        // Idle frame based on last direction
+        if (player.lastDirection === "down") player.setFrame(0);
+        if (player.lastDirection === "left") player.setFrame(4);
+        if (player.lastDirection === "right") player.setFrame(8);
+        if (player.lastDirection === "up") player.setFrame(12);
+    }
 }
